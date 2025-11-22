@@ -5,9 +5,10 @@ Contains all calibration parameters, network settings, and robot specifications
 
 # Network Configuration
 NETWORK_CONFIG = {
-    'server_host': '169.254.182.135',  # IP of the PC running server
+    'server_host': '169.254.202.184',  # IP of the PC running server
     'server_port': 9999,
-    'connection_timeout': 30,  # seconds
+    'connection_timeout': 10,  # seconds
+    'buffer_size': 4096,  # bytes
 }
 
 # Robot Hardware Configuration

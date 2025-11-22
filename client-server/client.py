@@ -271,7 +271,7 @@ class Client:
 
 if __name__ == "__main__":
     # Connect to the server
-    host = "169.254.182.135"  # Same as server
+    host = "169.254.202.184"  # Same as server
     port = 9999
     
     client = Client(host, port)
