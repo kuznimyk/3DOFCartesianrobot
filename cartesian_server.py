@@ -42,7 +42,7 @@ class CartesianServer:
         self.cs.send("EXIT".encode("UTF-8"))
 
 if __name__ == "__main__":
-    host = "169.254.207.188"
+    host = "169.254.94.194"
     port = 9999
     server = CartesianServer(host, port)
     queue = Queue()
