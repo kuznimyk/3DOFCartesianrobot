@@ -38,6 +38,14 @@ class CartesianServer:
         queue.put(reply)
         print(f"Reply: {reply}")
 
+    def sendSetHome(self, queue):
+        """Set current position as home/starting point"""
+        print("Setting current position as home...")
+        self.cs.send("SET".encode("UTF-8"))
+        reply = self.cs.recv(128).decode("UTF-8")
+        queue.put(reply)
+        print(f"Reply: {reply}")
+    
     def sendExit(self):
         self.cs.send("EXIT".encode("UTF-8"))
     
@@ -66,12 +74,18 @@ if __name__ == "__main__":
     print("Enter absolute coordinates: x,y,z (in cm)")
     print("Example: '5,10,3' moves to position (5,10,3)")
     print("Commands: 'open' = open gripper, 'close' = close gripper")
-    print("Type 'exit' to quit\n")
+    print("Commands: 'set' = set current position as home")
+    print("Type 'exit' to return to home and quit\n")
     
     while True:
         server.requestCoordinates()
         try:
             cmd = input("Enter command: ").strip()
+            
+            if cmd.lower() == 'set':
+                server.sendSetHome(queue)
+                queue.get()
+                continue
             
             if cmd.lower() == 'exit':
                 server.sendExit()
