@@ -46,6 +46,12 @@ class CartesianClient:
         print("Received: {}".format(data))
         return data
     
+
+    def sendCoordinates(self, x, y, z):
+        """Send current X/Y/Z coordinates"""
+        data = "{},{},{}".format(x, y, z)
+        print("Sending coordinates: X={}, Y={}, Z={}".format(x, y, z))
+        self.s.send(data.encode("UTF-8"))
     def sendDone(self):
         self.s.send("DONE".encode("UTF-8"))
     
@@ -96,7 +102,7 @@ class CartesianClient:
         """Open gripper (run 6 times for reliability)"""
         print("Opening gripper (6x)...")
         for i in range(6):
-            self.gripper_motor.on_for_degrees(SpeedPercent(20), 90, brake=True, block=True)
+            self.gripper_motor.on_for_degrees(SpeedPercent(20), 45, brake=True, block=True)
         print("Gripper opened")
     
     def closeGripper(self):
@@ -132,7 +138,7 @@ class CartesianClient:
         print("Motors stopped at origin (0,0,0)")
 
 if __name__ == "__main__":
-    host = "169.254.207.188"
+    host = "169.254.94.194"
     port = 9999
     client = CartesianClient(host, port)
     
@@ -157,6 +163,14 @@ if __name__ == "__main__":
             try:
                 client.closeGripper()
                 client.sendDone()
+            except Exception as e:
+                print("Error: {}".format(e))
+                client.sendDone()
+            continue
+        
+        if data == "COORDS":
+            try:
+                client.sendCoordinates(client.current_x, client.current_y, client.current_z)
             except Exception as e:
                 print("Error: {}".format(e))
                 client.sendDone()

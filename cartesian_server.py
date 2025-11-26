@@ -40,6 +40,21 @@ class CartesianServer:
 
     def sendExit(self):
         self.cs.send("EXIT".encode("UTF-8"))
+    
+    def requestCoordinates(self):
+        """Request current coordinates from client"""
+        self.cs.send("COORDS".encode("UTF-8"))
+        reply = self.cs.recv(128).decode("UTF-8")
+        try:
+            parts = reply.split(",")
+            x = float(parts[0])
+            y = float(parts[1])
+            z = float(parts[2])
+            print(f"Current position: X={x}, Y={y}, Z={z}")
+            return x, y, z
+        except:
+            print(f"Error parsing coordinates: {reply}")
+            return None, None, None
 
 if __name__ == "__main__":
     host = "169.254.94.194"
@@ -54,6 +69,7 @@ if __name__ == "__main__":
     print("Type 'exit' to quit\n")
     
     while True:
+        server.requestCoordinates()
         try:
             cmd = input("Enter command: ").strip()
             
