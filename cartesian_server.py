@@ -23,23 +23,47 @@ class CartesianServer:
         print(f"Reply: {reply}")
     
     def sendGripperOpen(self, queue):
-        """Open gripper"""
-        print("Sending: OPEN gripper")
-        self.cs.send("OPEN".encode("UTF-8"))
+        """Open gripper - send multiple times for reliability"""
+        for i in range(1):
+            self.cs.send("OPEN".encode("UTF-8"))
+            reply = self.cs.recv(128).decode("UTF-8")
+            print(f"  Attempt {i+1}: {reply}")
+        queue.put("DONE")
+    
+    def sendGripperClose(self, queue):
+        """Close gripper - send multiple times for reliability"""
+        print("Sending: CLOSE gripper (3x for reliability)")
+        for i in range(1):
+            self.cs.send("CLOSE".encode("UTF-8"))
+            reply = self.cs.recv(128).decode("UTF-8")
+            print(f"  Attempt {i+1}: {reply}")
+        queue.put("DONE")
+
+    def sendSetHome(self, queue):
+        """Set current position as home/starting point"""
+        print("Setting current position as home...")
+        self.cs.send("SET".encode("UTF-8"))
         reply = self.cs.recv(128).decode("UTF-8")
         queue.put(reply)
         print(f"Reply: {reply}")
     
-    def sendGripperClose(self, queue):
-        """Close gripper"""
-        print("Sending: CLOSE gripper")
-        self.cs.send("CLOSE".encode("UTF-8"))
-        reply = self.cs.recv(128).decode("UTF-8")
-        queue.put(reply)
-        print(f"Reply: {reply}")
-
     def sendExit(self):
         self.cs.send("EXIT".encode("UTF-8"))
+    
+    def requestCoordinates(self):
+        """Request current coordinates from client"""
+        self.cs.send("COORDS".encode("UTF-8"))
+        reply = self.cs.recv(128).decode("UTF-8")
+        try:
+            parts = reply.split(",")
+            x = float(parts[0])
+            y = float(parts[1])
+            z = float(parts[2])
+            print(f"Current position: X={x}, Y={y}, Z={z}")
+            return x, y, z
+        except:
+            print(f"Error parsing coordinates: {reply}")
+            return None, None, None
 
 if __name__ == "__main__":
     host = "169.254.207.188"
@@ -51,11 +75,18 @@ if __name__ == "__main__":
     print("Enter absolute coordinates: x,y,z (in cm)")
     print("Example: '5,10,3' moves to position (5,10,3)")
     print("Commands: 'open' = open gripper, 'close' = close gripper")
-    print("Type 'exit' to quit\n")
+    print("Commands: 'set' = set current position as home")
+    print("Type 'exit' to return to home and quit\n")
     
     while True:
+        server.requestCoordinates()
         try:
             cmd = input("Enter command: ").strip()
+            
+            if cmd.lower() == 'set':
+                server.sendSetHome(queue)
+                queue.get()
+                continue
             
             if cmd.lower() == 'exit':
                 server.sendExit()

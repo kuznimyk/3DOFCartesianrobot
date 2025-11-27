@@ -2,7 +2,7 @@
 # RUN ON BRICK
 
 import socket
-from ev3dev2.motor import MediumMotor, OUTPUT_A, OUTPUT_B, OUTPUT_C, OUTPUT_D, SpeedPercent
+from ev3dev2.motor import MediumMotor, LargeMotor, OUTPUT_A, OUTPUT_B, OUTPUT_C, OUTPUT_D, SpeedPercent
 
 class CartesianClient:
     def __init__(self, host, port):
@@ -14,13 +14,18 @@ class CartesianClient:
         # Initialize motors for X, Y, Z axes and gripper
         self.gripper_motor = MediumMotor(OUTPUT_A)
         self.y_motor = MediumMotor(OUTPUT_B)
-        self.z_motor = MediumMotor(OUTPUT_C)
+        self.z_motor = LargeMotor(OUTPUT_C)
         self.x_motor = MediumMotor(OUTPUT_D)
         
         # Track current position (in cm)
         self.current_x = 0
         self.current_y = 0
         self.current_z = 0
+        
+        # Home position (set position)
+        self.home_x = 0
+        self.home_y = 0
+        self.home_z = 0
         
         # Calibration: degrees per cm (adjust based on your mechanism)
         self.deg_per_cm_x = 36  # Adjust this value
@@ -39,13 +44,20 @@ class CartesianClient:
         self.current_y = 0
         self.current_z = 0
         print("Calibrated: Current position set as (0,0,0)")
-        
+    
+            
     def pollData(self):
         print("Waiting for data...")
         data = self.s.recv(128).decode("UTF-8")
         print("Received: {}".format(data))
         return data
     
+
+    def sendCoordinates(self, x, y, z):
+        """Send current X/Y/Z coordinates"""
+        data = "{},{},{}".format(x, y, z)
+        print("Sending coordinates: X={}, Y={}, Z={}".format(x, y, z))
+        self.s.send(data.encode("UTF-8"))
     def sendDone(self):
         self.s.send("DONE".encode("UTF-8"))
     
@@ -95,29 +107,31 @@ class CartesianClient:
     def openGripper(self):
         """Open gripper (run 6 times for reliability)"""
         print("Opening gripper (6x)...")
-        for i in range(6):
-            self.gripper_motor.on_for_degrees(SpeedPercent(20), 90, brake=True, block=True)
+        for i in range(5):
+            self.gripper_motor.on_for_degrees(SpeedPercent(25), 45, brake=True, block=True)
         print("Gripper opened")
     
     def closeGripper(self):
         """Close gripper (run 6 times for reliability)"""
         print("Closing gripper (6x)...")
-        for i in range(6):
-            self.gripper_motor.on_for_degrees(SpeedPercent(20), -90, brake=True, block=True)
+        for i in range(5):
+            self.gripper_motor.on_for_degrees(SpeedPercent(25), -90, brake=True, block=True)
         print("Gripper closed")
     
+    def setHome(self):
+            """Set current position as home/starting point"""
+            self.home_x = self.current_x
+            self.home_y = self.current_y
+            self.home_z = self.current_z
+            print("Home position set: ({:.1f}, {:.1f}, {:.1f})".format(self.home_x, self.home_y, self.home_z))
+
+
     def stopAll(self):
-        print("Returning to origin (0,0,0)...")
+        print("Returning to home position ({:.1f}, {:.1f}, {:.1f})...".format(
+            self.home_x, self.home_y, self.home_z))
         
-        # Move all motors back to position 0 (origin)
-        self.x_motor.on_to_position(SpeedPercent(10), 0, brake=True, block=False)
-        self.y_motor.on_to_position(SpeedPercent(10), 0, brake=True, block=False)
-        self.z_motor.on_to_position(SpeedPercent(10), 0, brake=True, block=False)
-        
-        # Wait for all to finish
-        self.x_motor.wait_until_not_moving()
-        self.y_motor.wait_until_not_moving()
-        self.z_motor.wait_until_not_moving()
+        # Move to home position
+        self.moveCartesian(self.home_x, self.home_y, self.home_z)
         
         # Stop motors
         self.x_motor.stop()
@@ -125,11 +139,7 @@ class CartesianClient:
         self.z_motor.stop()
         self.gripper_motor.stop()
         
-        # Reset position tracking
-        self.current_x = 0
-        self.current_y = 0
-        self.current_z = 0
-        print("Motors stopped at origin (0,0,0)")
+        print("Motors stopped at home position")
 
 if __name__ == "__main__":
     host = "169.254.207.188"
@@ -156,6 +166,23 @@ if __name__ == "__main__":
         if data == "CLOSE":
             try:
                 client.closeGripper()
+                client.sendDone()
+            except Exception as e:
+                print("Error: {}".format(e))
+                client.sendDone()
+            continue
+        
+        if data == "COORDS":
+            try:
+                client.sendCoordinates(client.current_x, client.current_y, client.current_z)
+            except Exception as e:
+                print("Error: {}".format(e))
+                client.sendDone()
+            continue
+        
+        if data == "SET":
+            try:
+                client.setHome()
                 client.sendDone()
             except Exception as e:
                 print("Error: {}".format(e))

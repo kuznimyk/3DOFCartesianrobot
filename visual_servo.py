@@ -12,10 +12,10 @@ from queue import Queue
 from cartesian_server import CartesianServer
 
 # Visual servoing parameters
-LAMBDA = 0.5  # Control gain (0.1-1.0)
-ERROR_THRESHOLD = 10  # pixels
+LAMBDA = 0.3  # Control gain (0.1-1.0) - REDUCED to prevent oscillation
+ERROR_THRESHOLD = 50  # pixels - increased for easier convergence
 MAX_ITERATIONS = 100
-PIXEL_TO_CM = 0.05  # Scaling factor (adjust after calibration!)
+PIXEL_TO_CM = 0.05  # Scaling factor - REDUCED for smoother movement
 
 # Axis limits (cm)
 X_MIN, X_MAX = 0, 6
@@ -27,18 +27,20 @@ def load_color_ranges():
     """Load color ranges for detection"""
     return {
         'red': {
-            'lower': np.array([0, 100, 100]),
-            'upper': np.array([10, 255, 255]),
-            'lower2': np.array([170, 100, 100]),
-            'upper2': np.array([180, 255, 255])
+            'lower': np.array([0, 180, 255]),
+            'upper': np.array([180, 250, 255])
         },
         'yellow': {
-            'lower': np.array([20, 100, 100]),
-            'upper': np.array([40, 255, 255])
+            'lower': np.array([20, 23, 208]),
+            'upper': np.array([178, 184, 255])
         },
         'green': {
-            'lower': np.array([40, 50, 50]),
-            'upper': np.array([80, 255, 255])
+            'lower': np.array([60, 116, 0]),
+            'upper': np.array([84, 255, 255])
+        },
+        'blue': {
+            'lower': np.array([11, 106, 239]),
+            'upper': np.array([180, 255, 255])
         }
     }
 
@@ -59,11 +61,6 @@ def detect_color_center(hsv_frame, color_name, color_ranges):
     lower = color_range['lower']
     upper = color_range['upper']
     mask = cv2.inRange(hsv_frame, lower, upper)
-    
-    # For red, handle wrap-around
-    if color_name == 'red' and 'lower2' in color_range:
-        mask2 = cv2.inRange(hsv_frame, color_range['lower2'], color_range['upper2'])
-        mask = cv2.bitwise_or(mask, mask2)
     
     # Clean up mask
     kernel = np.ones((5, 5), np.uint8)
@@ -104,9 +101,7 @@ def find_gripper_midpoint(hsv_frame, color_ranges):
     color_range = color_ranges['red']
     
     # Create red mask
-    mask1 = cv2.inRange(hsv_frame, color_range['lower'], color_range['upper'])
-    mask2 = cv2.inRange(hsv_frame, color_range['lower2'], color_range['upper2'])
-    mask = cv2.bitwise_or(mask1, mask2)
+    mask = cv2.inRange(hsv_frame, color_range['lower'], color_range['upper'])
     
     # Clean up
     kernel = np.ones((5, 5), np.uint8)
@@ -155,6 +150,7 @@ def visual_servo_loop(server, camera_id=0, target_color='yellow'):
     """
     Main visual servoing control loop
     Aligns both X and Y axes until points overlap, then picks with Z-axis
+    Uses KCF tracker for gripper fingers after initial detection for better performance
     """
     print("\n=== Visual Servoing Started ===")
     print(f"Target color: {target_color.upper()}")
@@ -162,8 +158,8 @@ def visual_servo_loop(server, camera_id=0, target_color='yellow'):
     print(f"Error threshold: {ERROR_THRESHOLD} pixels")
     print(f"Pixel-to-cm scale: {PIXEL_TO_CM}")
     print(f"Axis limits: X[{X_MIN},{X_MAX}], Y[{Y_MIN},{Y_MAX}], Z[{Z_MIN},{Z_MAX}]")
-    print("Strategy: Align X and Y until overlap, then use Z to pick")
-    print("\nPress 'q' to quit, 's' to save frame\n")
+    print("Strategy: Detect red fingers once, then track with KCF. Detect target each frame.")
+    print("\nPress 'q' to quit, 's' to save frame, 'r' to re-detect fingers\n")
     
     # Open camera
     camera = cv2.VideoCapture(camera_id)
@@ -191,6 +187,12 @@ def visual_servo_loop(server, camera_id=0, target_color='yellow'):
     initial_x, initial_y, initial_z = current_x, current_y, current_z
     print(f"Initial position: ({initial_x}, {initial_y}, {initial_z})")
     
+    # Tracker state
+    trackers = []  # Will hold two KCF trackers for two fingers
+    tracker_initialized = False
+    frames_without_redetect = 0
+    REDETECT_INTERVAL = 30  # Re-detect every 30 frames to avoid drift
+    
     iteration = 0
     converged = False
     
@@ -207,8 +209,81 @@ def visual_servo_loop(server, camera_id=0, target_color='yellow'):
             # Create output visualization
             output = frame.copy()
             
-            # Find gripper midpoint (target position in image)
-            grip_center = find_gripper_midpoint(hsv, color_ranges)
+            # Get gripper midpoint - either track or detect
+            grip_center = None
+            
+            # Check if we need to re-detect (first time, manual request, or periodic refresh)
+            if not tracker_initialized or frames_without_redetect >= REDETECT_INTERVAL:
+                # Detect red fingers from scratch
+                color_range = color_ranges['red']
+                mask = cv2.inRange(hsv, color_range['lower'], color_range['upper'])
+                
+                kernel = np.ones((5, 5), np.uint8)
+                mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+                mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+                
+                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                valid_contours = [c for c in contours if cv2.contourArea(c) > 100]
+                
+                if len(valid_contours) >= 2:
+                    sorted_contours = sorted(valid_contours, key=cv2.contourArea, reverse=True)[:2]
+                    
+                    # Initialize KCF trackers for the two fingers
+                    trackers = []
+                    finger_centers = []
+                    
+                    for contour in sorted_contours:
+                        x, y, w, h = cv2.boundingRect(contour)
+                        bbox = (x, y, w, h)
+                        
+                        # Create KCF tracker for OpenCV 4.12.0
+                        tracker = cv2.TrackerKCF.create()
+                        tracker.init(frame, bbox)
+                        trackers.append(tracker)
+                        
+                        # Get center
+                        M = cv2.moments(contour)
+                        if M['m00'] != 0:
+                            cx = int(M['m10'] / M['m00'])
+                            cy = int(M['m01'] / M['m00'])
+                            finger_centers.append((cx, cy))
+                    
+                    if len(finger_centers) == 2:
+                        grip_center = (
+                            (finger_centers[0][0] + finger_centers[1][0]) // 2,
+                            (finger_centers[0][1] + finger_centers[1][1]) // 2
+                        )
+                        tracker_initialized = True
+                        frames_without_redetect = 0
+                        print("  [Detected and initialized KCF trackers]")
+            
+            else:
+                # Use KCF trackers to update positions
+                finger_centers = []
+                success_count = 0
+                
+                for i, tracker in enumerate(trackers):
+                    success, bbox = tracker.update(frame)
+                    if success:
+                        x, y, w, h = [int(v) for v in bbox]
+                        cx = x + w // 2
+                        cy = y + h // 2
+                        finger_centers.append((cx, cy))
+                        success_count += 1
+                        
+                        # Draw tracking box (green)
+                        cv2.rectangle(output, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                
+                if success_count == 2:
+                    grip_center = (
+                        (finger_centers[0][0] + finger_centers[1][0]) // 2,
+                        (finger_centers[0][1] + finger_centers[1][1]) // 2
+                    )
+                    frames_without_redetect += 1
+                else:
+                    # Tracking failed, force re-detection
+                    tracker_initialized = False
+                    print("  [Tracking lost, will re-detect]")
             
             if grip_center is None:
                 cv2.putText(output, "RED FINGERS NOT DETECTED!", (10, 30),
@@ -254,6 +329,14 @@ def visual_servo_loop(server, camera_id=0, target_color='yellow'):
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
             cv2.putText(output, f"Iter: {iteration}", (10, 60),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            cv2.putText(output, f"Threshold: {ERROR_THRESHOLD} px", (10, 90),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            
+            # Draw purple line with distance text at midpoint
+            mid_x = (grip_center[0] + target_x) // 2
+            mid_y = (grip_center[1] + target_y) // 2
+            cv2.putText(output, f"{error_norm:.1f}px", (mid_x + 10, mid_y - 10),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255), 2)
             
             # Show frame
             cv2.imshow("Visual Servoing", output)
@@ -271,10 +354,11 @@ def visual_servo_loop(server, camera_id=0, target_color='yellow'):
             # Calculate control command (convert pixels to cm)
             # Move BOTH X and Y axes to align the two points
             delta_x = -error_u * PIXEL_TO_CM * LAMBDA
-            delta_y = -error_v * PIXEL_TO_CM * LAMBDA
+            delta_y = error_v * PIXEL_TO_CM * LAMBDA  # POSITIVE: down in image = positive Y robot
             
             print(f"Iter {iteration}: Error=({error_u:.1f}, {error_v:.1f})px, " 
                   f"Norm={error_norm:.1f}px, Move=({delta_x:.2f}, {delta_y:.2f})cm")
+            print(f"  Purple line length: {error_norm:.2f} pixels (threshold: {ERROR_THRESHOLD} px)")
             
             # Send movement command (X and Y change)
             new_x = current_x + delta_x
@@ -282,6 +366,11 @@ def visual_servo_loop(server, camera_id=0, target_color='yellow'):
             
             # Clamp to limits
             new_x, new_y, new_z = clamp_position(new_x, new_y, current_z)
+            
+            # DEBUG: Show position changes
+            print(f"  Current pos: ({current_x:.2f}, {current_y:.2f}, {current_z:.2f})")
+            print(f"  -> New pos: ({new_x:.2f}, {new_y:.2f}, {new_z:.2f})")
+            print(f"  Y changed by: {new_y - current_y:.2f} cm")
             
             server.sendMove(new_x, new_y, new_z, queue)
             reply = queue.get()
@@ -305,6 +394,10 @@ def visual_servo_loop(server, camera_id=0, target_color='yellow'):
                 filename = f"vs_frame_{iteration}.jpg"
                 cv2.imwrite(filename, output)
                 print(f"Saved: {filename}")
+            elif key == ord('r'):
+                # Force re-detection of fingers
+                tracker_initialized = False
+                print("  [Manual re-detection requested]")
             
             time.sleep(0.1)  # Small delay between movements
         
@@ -315,15 +408,15 @@ def visual_servo_loop(server, camera_id=0, target_color='yellow'):
         if converged:
             print("\n=== Starting Pick Sequence ===")
             
-            # 1. Move Z to maximum (down to object)
-            print(f"1. Moving Z to {Z_MAX} (down)...")
-            server.sendMove(current_x, current_y, Z_MAX, queue)
+            # 1. Open gripper FIRST (before moving down)
+            print("1. Opening gripper...")
+            server.sendGripperOpen(queue)
             queue.get()
             time.sleep(0.5)
             
-            # 2. Open gripper
-            print("2. Opening gripper...")
-            server.sendGripperOpen(queue)
+            # 2. Move Z to maximum (down to object)
+            print(f"2. Moving Z to {Z_MAX} (down)...")
+            server.sendMove(current_x, current_y, Z_MAX, queue)
             queue.get()
             time.sleep(0.5)
             
