@@ -6,7 +6,6 @@ Demonstrates object search and alignment
 
 import sys
 from vision_alignment import VisionAlignment, ObjectSeeker
-from cartesian_server import CartesianServer
 from queue import Queue
 
 
@@ -41,22 +40,28 @@ def test_search_only(color='red'):
         vision.release()
 
 
-def test_full_search_and_align(ev3_ip, color='red'):
-    """Full test with robot - search and align"""
+def test_full_search_and_align(server, color='red'):
+    """Full test with robot - search and align
+    
+    Args:
+        server: EXISTING CartesianServer instance (already connected)
+        color: Color to search for
+    """
     print("\n=== Full Search and Alignment Test ===")
+    print("Using existing server connection")
     
     # Initialize systems
-    vision = VisionAlignment(camera_id=0)
-    server = CartesianServer(ev3_ip, 9999)
+    vision = VisionAlignment(camera_id=2)
     seeker = ObjectSeeker(vision, server)
     queue = Queue()
     
     try:
         # Define search area (adjust to your robot's limits)
-        x_min, x_max = 2, 12  # cm
-        y_min, y_max = 2, 12  # cm
-        z_search = 8  # cm
-        step_size = 3  # cm
+        # Start from center to allow movement in all directions during alignment
+        x_min, x_max = 1.5, 4.5  # cm (centered in workspace)
+        y_min, y_max = 2.0, 5.0  # cm (centered, away from Y=0 boundary)
+        z_search = 0  # cm (at table level to see objects on the surface)
+        step_size = 1.5  # cm
         
         # Step 1: Search for object
         print("\n*** STEP 1: SEARCHING FOR OBJECT ***")
@@ -80,57 +85,65 @@ def test_full_search_and_align(ev3_ip, color='red'):
         print("\n*** STEP 2: ALIGNING WITH OBJECT ***")
         aligned, final_x, final_y = seeker.align_with_object(
             color_name=color,
-            max_iterations=10,
-            tolerance_x=20,
-            tolerance_y=20,
+            max_iterations=15,
+            tolerance_x=50,
+            tolerance_y=50,
             pixels_per_cm=50,
             visualize=True
         )
         
         if aligned:
             print("\n*** SUCCESS! Object aligned ***")
-            print("Ready to execute pick operation")
+            print("Executing pick sequence...")
             
-            # Optional: Demonstrate pick
-            response = input("\nExecute pick sequence? (y/n): ")
-            if response.lower() == 'y':
-                print("Lowering to pick height...")
-                server.sendMove(final_x, final_y, 2, queue)  # Lower Z
-                queue.get()
-                
-                print("Closing gripper...")
-                server.sendGripperClose(queue)
-                queue.get()
-                
-                print("Lifting object...")
-                server.sendMove(final_x, final_y, 8, queue)  # Raise Z
-                queue.get()
-                
-                print("Pick complete!")
+            # Get current position for X and Y
+            current_x, current_y, current_z = server.requestCoordinates()
+            
+            # Step 1: Open gripper once
+            print("Opening gripper...")
+            server.sendGripperOpen(queue)
+            queue.get()
+            
+            # Step 2: Descend to Z = 5.5
+            print("Descending to pick height (Z=5.5)...")
+            server.sendMove(current_x, current_y, 5.5, queue)
+            queue.get()
+            
+            # Step 3: Close gripper
+            print("Closing gripper to grab object...")
+            server.sendGripperClose(queue)
+            queue.get()
+            
+            # Step 4: Lift to Z = 0
+            print("Lifting object to Z=0...")
+            server.sendMove(current_x, current_y, 0, queue)
+            queue.get()
+            
+            print("\n*** Pick complete! ***")
         else:
             print("\n*** Alignment failed ***")
         
         # Return to safe position
         print("\nReturning to home...")
-        server.sendMove(0, 0, 10, queue)
-        queue.get()
+        # Don't send invalid coordinates - let exit command handle return to home
         
     finally:
         vision.release()
-        server.sendExit()
+        # Don't exit - let the main server continue running
 
 
-def interactive_menu():
-    """Interactive test menu"""
-    print("\n" + "="*50)
-    print("Vision Alignment Test Menu")
-    print("="*50)
-    print("1. Vision-only test (no robot)")
-    print("2. Full search and align with robot")
-    print("3. Exit")
-    print("="*50)
+if __name__ == "__main__":
+    print("="*60)
+    print("Vision Alignment Test - Standalone Mode")
+    print("="*60)
+    print("\nNOTE: This file is meant to be imported by cartesian_server.py")
+    print("      Do NOT run this directly for robot control!")
+    print("\nStandalone options:")
+    print("  1. Vision-only test (camera test, no robot needed)")
+    print("  2. Exit")
+    print("="*60)
     
-    choice = input("\nSelect option (1-3): ").strip()
+    choice = input("\nSelect option (1-2): ").strip()
     
     if choice == '1':
         color = input("Enter color to detect (red/yellow/blue): ").strip().lower()
@@ -138,37 +151,5 @@ def interactive_menu():
             print("Invalid color. Using 'red'")
             color = 'red'
         test_search_only(color)
-    
-    elif choice == '2':
-        ev3_ip = input("Enter EV3 IP address (default: 169.254.207.188): ").strip()
-        if not ev3_ip:
-            ev3_ip = "169.254.207.188"
-        
-        color = input("Enter color to detect (red/yellow/blue): ").strip().lower()
-        if color not in ['red', 'yellow', 'blue']:
-            print("Invalid color. Using 'red'")
-            color = 'red'
-        
-        test_full_search_and_align(ev3_ip, color)
-    
-    elif choice == '3':
+    else:
         print("Exiting...")
-        sys.exit(0)
-    
-    else:
-        print("Invalid choice")
-
-
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        # Command line mode
-        if sys.argv[1] == 'vision':
-            color = sys.argv[2] if len(sys.argv) > 2 else 'red'
-            test_search_only(color)
-        elif sys.argv[1] == 'full':
-            ev3_ip = sys.argv[2] if len(sys.argv) > 2 else "169.254.207.188"
-            color = sys.argv[3] if len(sys.argv) > 3 else 'red'
-            test_full_search_and_align(ev3_ip, color)
-    else:
-        # Interactive mode
-        interactive_menu()

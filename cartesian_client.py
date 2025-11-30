@@ -5,11 +5,18 @@ import socket
 from ev3dev2.motor import MediumMotor, LargeMotor, OUTPUT_A, OUTPUT_B, OUTPUT_C, OUTPUT_D, SpeedPercent
 
 class CartesianClient:
+    # Workspace limits (in cm)
+    X_MIN, X_MAX = 0, 6
+    Y_MIN, Y_MAX = 0, 6.5
+    Z_MIN, Z_MAX = -2, 4.5
+    
     def __init__(self, host, port):
         print("Setting up client\nAddress: {}\nPort: {}".format(host, port))
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((host, port))
         print("Connected successfully!")
+        print("Workspace Limits: X=[{},{}] Y=[{},{}] Z=[{},{}]".format(
+            self.X_MIN, self.X_MAX, self.Y_MIN, self.Y_MAX, self.Z_MIN, self.Z_MAX))
         
         # Initialize motors for X, Y, Z axes and gripper
         self.gripper_motor = MediumMotor(OUTPUT_A)
@@ -63,6 +70,17 @@ class CartesianClient:
     
     def moveCartesian(self, target_x, target_y, target_z):
         """Move to absolute X/Y/Z coordinates (in cm)"""
+        # Enforce limits
+        if not (self.X_MIN <= target_x <= self.X_MAX):
+            print("ERROR: X={} out of range [{},{}] - ABORTING".format(target_x, self.X_MIN, self.X_MAX))
+            return
+        if not (self.Y_MIN <= target_y <= self.Y_MAX):
+            print("ERROR: Y={} out of range [{},{}] - ABORTING".format(target_y, self.Y_MIN, self.Y_MAX))
+            return
+        if not (self.Z_MIN <= target_z <= self.Z_MAX):
+            print("ERROR: Z={} out of range [{},{}] - ABORTING".format(target_z, self.Z_MIN, self.Z_MAX))
+            return
+        
         print("Moving to: X={} cm, Y={} cm, Z={} cm".format(target_x, target_y, target_z))
         
         # Calculate movement needed from current position

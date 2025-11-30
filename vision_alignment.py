@@ -11,7 +11,7 @@ import os
 
 
 class VisionAlignment:
-    def __init__(self, camera_id=0):
+    def __init__(self, camera_id=2):
         """
         Initialize vision alignment system
         
@@ -142,11 +142,11 @@ class VisionAlignment:
         Returns:
             (is_aligned, error_x, error_y, target_x, target_y)
         """
-        # Target X: center of frame
+        # Target X: center of frame (50%)
         target_x = self.width / 2
         
-        # Target Y: 25% from top (object should be in upper portion)
-        target_y = self.height * 0.25
+        # Target Y: 25% from top (object positioned in upper portion)
+        target_y = self.height * 0.85
         
         # Calculate errors
         error_x = center_x - target_x
@@ -157,7 +157,7 @@ class VisionAlignment:
         
         return is_aligned, error_x, error_y, target_x, target_y
     
-    def get_alignment_correction(self, center_x, center_y, pixels_per_cm=50):
+    def get_alignment_correction(self, center_x, center_y, pixels_per_cm=50, damping=0.5):
         """
         Calculate movement correction needed to align object
         
@@ -165,6 +165,7 @@ class VisionAlignment:
             center_x: X coordinate of object center
             center_y: Y coordinate of object center
             pixels_per_cm: Camera calibration - pixels per cm (default: 50)
+            damping: Damping factor to prevent overshooting (0-1, default: 0.5)
             
         Returns:
             (delta_x_cm, delta_y_cm) - movement needed in cm
@@ -174,8 +175,9 @@ class VisionAlignment:
         # Convert pixel errors to cm
         # Positive error_x means object is to the right, need to move gripper right (+X)
         # Positive error_y means object is below target, need to move gripper down (+Y)
-        delta_x_cm = error_x / pixels_per_cm
-        delta_y_cm = error_y / pixels_per_cm
+        # But in robot coordinates, we need to INVERT Y direction
+        delta_x_cm = (error_x / pixels_per_cm) * damping
+        delta_y_cm = -(error_y / pixels_per_cm) * damping  # Inverted Y axis
         
         return delta_x_cm, delta_y_cm
     
@@ -339,6 +341,10 @@ class ObjectSeeker:
         print("Tolerance: X={} px, Y={} px".format(tolerance_x, tolerance_y))
         print("Target: X=center (50%), Y=25% from top")
         
+        # Workspace limits
+        X_MIN, X_MAX = 0, 6.2
+        Y_MIN, Y_MAX = 0, 7
+        
         for iteration in range(max_iterations):
             print("\n--- Iteration {}/{} ---".format(iteration + 1, max_iterations))
             
@@ -368,23 +374,63 @@ class ObjectSeeker:
             delta_x_cm, delta_y_cm = self.vision.get_alignment_correction(
                 center_x, center_y, pixels_per_cm)
             
-            print("Correction needed: X={:.2f} cm, Y={:.2f} cm".format(delta_x_cm, delta_y_cm))
+            # Limit correction step size for gradual movement
+            MAX_STEP = 0.5  # Maximum 0.5cm per iteration
+            if abs(delta_x_cm) > MAX_STEP:
+                delta_x_cm = MAX_STEP if delta_x_cm > 0 else -MAX_STEP
+            if abs(delta_y_cm) > MAX_STEP:
+                delta_y_cm = MAX_STEP if delta_y_cm > 0 else -MAX_STEP
             
-            # Get current position
-            self.server.requestCoordinates()
-            # Note: In real implementation, you'd need to get actual coordinates from server
-            # For now, we send relative movement commands
+            print("Correction needed: X={:.2f} cm, Y={:.2f} cm".format(delta_x_cm, delta_y_cm))
+            print("Error in pixels: X={:.1f} px, Y={:.1f} px".format(error_x, error_y))
+            
+            # Check if correction is too small
+            if abs(delta_x_cm) < 0.1 and abs(delta_y_cm) < 0.1:
+                print("Correction very small - might already be aligned")
+            
+            # Get current position from server
+            current_x, current_y, current_z = self.server.requestCoordinates()
+            
+            if current_x is None:
+                print("ERROR: Could not get current position!")
+                return False, None, None
+            
+            # Calculate new absolute position
+            new_x = current_x + delta_x_cm
+            new_y = current_y + delta_y_cm
+            new_z = current_z  # Keep Z constant during alignment
+            
+            print("Before clamping: new_x={:.2f}, new_y={:.2f}, new_z={:.2f}".format(new_x, new_y, new_z))
+            
+            # Clamp to workspace limits - only reject if clamping changes the value significantly
+            X_MIN, X_MAX = 0, 6
+            Y_MIN, Y_MAX = 0, 6.5
+            Z_MIN, Z_MAX = 0, 4.5
+            
+            clamped_x = max(X_MIN, min(X_MAX, new_x))
+            clamped_y = max(Y_MIN, min(Y_MAX, new_y))
+            clamped_z = max(Z_MIN, min(Z_MAX, new_z))
+            
+            # Move as close as possible to the target, even if at boundary
+            new_x = clamped_x
+            new_y = clamped_y
+            new_z = clamped_z
+            
+            print("After clamping: new_x={:.2f}, new_y={:.2f}, new_z={:.2f}".format(new_x, new_y, new_z))
+            print("Moving from ({:.2f}, {:.2f}, {:.2f}) to ({:.2f}, {:.2f}, {:.2f})".format(
+                current_x, current_y, current_z, new_x, new_y, new_z))
             
             # Send correction movement
-            # This is a simplified version - in practice you'd need to:
-            # 1. Get current robot position from server
-            # 2. Calculate new absolute position
-            # 3. Send new absolute position
-            print("(Manual adjustment needed - implement coordinate tracking)")
+            self.server.sendMove(new_x, new_y, new_z, queue)
+            reply = queue.get()
             
-            # Wait for user to manually apply correction for now
+            if reply == "ERROR":
+                print("ERROR: Movement rejected (out of bounds)")
+                return False, None, None
+            
+            # Wait for movement to settle
             import time
-            time.sleep(1)
+            time.sleep(0.5)
         
         print("\n*** Alignment failed after {} iterations ***".format(max_iterations))
         return False, None, None
