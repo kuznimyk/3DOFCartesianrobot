@@ -98,13 +98,13 @@ class CartesianClient:
         # Move axes simultaneously using absolute positioning
         if abs(delta_x) > 0.01:
             target_pos_x = self.x_motor.position + deg_x
-            self.x_motor.on_to_position(SpeedPercent(10), target_pos_x, brake=True, block=False)
+            self.x_motor.on_to_position(SpeedPercent(30), target_pos_x, brake=True, block=False)
         if abs(delta_y) > 0.01:
             target_pos_y = self.y_motor.position + deg_y
-            self.y_motor.on_to_position(SpeedPercent(10), target_pos_y, brake=True, block=False)
+            self.y_motor.on_to_position(SpeedPercent(30), target_pos_y, brake=True, block=False)
         if abs(delta_z) > 0.01:
             target_pos_z = self.z_motor.position + deg_z
-            self.z_motor.on_to_position(SpeedPercent(10), target_pos_z, brake=True, block=False)
+            self.z_motor.on_to_position(SpeedPercent(30), target_pos_z, brake=True, block=False)
         
         # Wait for axes to finish
         if abs(delta_x) > 0.01:
@@ -126,19 +126,19 @@ class CartesianClient:
         """Open gripper (run 6 times for reliability)"""
         print("Opening gripper (6x)...")
         
-        self.gripper_motor.on_for_degrees(SpeedPercent(20), 140, brake=True, block=True)
+        self.gripper_motor.on_for_degrees(SpeedPercent(30), 140, brake=True, block=True)
         
     
     def closeGripper(self):
         """Close gripper (run 6 times for reliability)"""
         print("Closing gripper (6x)...")
         
-        self.gripper_motor.on_for_degrees(SpeedPercent(20), -140, brake=True, block=True)
+        self.gripper_motor.on_for_degrees(SpeedPercent(30), -160, brake=True, block=True)
     
     def resetGripper(self):
         """Reset gripper motor position to 0 degrees"""
         print("Resetting gripper to 0 degrees...")
-        self.gripper_motor.on_to_position(SpeedPercent(20), 0, brake=True, block=True)
+        self.gripper_motor.on_to_position(SpeedPercent(30), 0, brake=True, block=True)
         print("Gripper reset complete")
         
     

@@ -116,7 +116,7 @@ class PickAndPlaceController:
         print("Current position: X={:.2f}, Y={:.2f}, Z={:.2f}".format(current_x, current_y, current_z))
         
         # Apply camera offset correction
-        corrected_x = current_x - 1.5  # Adjust based on calibration
+        corrected_x = current_x - 2  # Adjust based on calibration
         print("Applying camera offset: X={:.2f} -> X={:.2f}".format(current_x, corrected_x))
         
         # Move to corrected position
