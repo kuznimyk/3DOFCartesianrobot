@@ -95,10 +95,9 @@ def test_full_search_and_align(server, color='red'):
         if aligned:
             print("\n*** SUCCESS! Object aligned ***")
             print("Executing pick sequence...")
-            
             # Get current position for X and Y
             current_x, current_y, current_z = server.requestCoordinates()
-            
+              # Move to safe Z height
             # Step 1: Open gripper once
             print("Opening gripper...")
             server.sendGripperOpen(queue)
@@ -106,11 +105,12 @@ def test_full_search_and_align(server, color='red'):
             
             # Step 2: Descend to Z = 5.5
             print("Descending to pick height (Z=5.5)...")
-            server.sendMove(current_x, current_y, 5.5, queue)
+            server.sendMove(current_x, current_y, 5, queue)
             queue.get()
             
             # Step 3: Close gripper
             print("Closing gripper to grab object...")
+            server.sendGripperClose(queue)
             server.sendGripperClose(queue)
             queue.get()
             
@@ -146,8 +146,8 @@ if __name__ == "__main__":
     choice = input("\nSelect option (1-2): ").strip()
     
     if choice == '1':
-        color = input("Enter color to detect (red/yellow/blue): ").strip().lower()
-        if color not in ['red', 'yellow', 'blue']:
+        color = input("Enter color to detect (red/green/blue): ").strip().lower()
+        if color not in ['red', 'green', 'blue']:
             print("Invalid color. Using 'red'")
             color = 'red'
         test_search_only(color)

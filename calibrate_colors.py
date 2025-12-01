@@ -18,9 +18,9 @@ DEFAULT_COLORS = {
         'lower2': [170, 100, 100],  # Red wraps around in HSV
         'upper2': [180, 255, 255]
     },
-    'yellow': {
-        'lower': [20, 100, 100],
-        'upper': [40, 255, 255]
+    'green': {
+        'lower': [40, 100, 100],
+        'upper': [80, 255, 255]
     },
     'blue': {
         'lower': [100, 100, 100],
@@ -243,12 +243,12 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         color = sys.argv[1].lower()
     else:
-        print("\nAvailable colors: red, yellow, blue")
+        print("\nAvailable colors: red, green, blue")
         color = input("Enter color to calibrate (default: red): ").lower()
         if not color:
             color = 'red'
     
-    if color not in ['red', 'yellow', 'blue']:
+    if color not in ['red', 'green', 'blue']:
         print("Invalid color! Using 'red'")
         color = 'red'
     

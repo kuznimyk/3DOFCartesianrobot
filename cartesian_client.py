@@ -6,9 +6,9 @@ from ev3dev2.motor import MediumMotor, LargeMotor, OUTPUT_A, OUTPUT_B, OUTPUT_C,
 
 class CartesianClient:
     # Workspace limits (in cm)
-    X_MIN, X_MAX = 0, 6
-    Y_MIN, Y_MAX = 0, 6.5
-    Z_MIN, Z_MAX = -2, 4.5
+    X_MIN, X_MAX = -1, 6
+    Y_MIN, Y_MAX = -1, 7
+    Z_MIN, Z_MAX = -3, 5
     
     def __init__(self, host, port):
         print("Setting up client\nAddress: {}\nPort: {}".format(host, port))
@@ -104,7 +104,7 @@ class CartesianClient:
             self.y_motor.on_to_position(SpeedPercent(10), target_pos_y, brake=True, block=False)
         if abs(delta_z) > 0.01:
             target_pos_z = self.z_motor.position + deg_z
-            self.z_motor.on_to_position(SpeedPercent(30), target_pos_z, brake=True, block=False)
+            self.z_motor.on_to_position(SpeedPercent(10), target_pos_z, brake=True, block=False)
         
         # Wait for axes to finish
         if abs(delta_x) > 0.01:
@@ -125,16 +125,16 @@ class CartesianClient:
     def openGripper(self):
         """Open gripper (run 6 times for reliability)"""
         print("Opening gripper (6x)...")
-        for i in range(6):
-            self.gripper_motor.on_for_degrees(SpeedPercent(20), 45, brake=True, block=True)
-        print("Gripper opened")
+        
+        self.gripper_motor.on_for_degrees(SpeedPercent(20), 150, brake=True, block=True)
+        
     
     def closeGripper(self):
         """Close gripper (run 6 times for reliability)"""
         print("Closing gripper (6x)...")
-        for i in range(6):
-            self.gripper_motor.on_for_degrees(SpeedPercent(20), -90, brake=True, block=True)
-        print("Gripper closed")
+        
+        self.gripper_motor.on_for_degrees(SpeedPercent(20), -150, brake=True, block=True)
+        
     
     def setHome(self):
             """Set current position as home/starting point"""

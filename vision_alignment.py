@@ -46,9 +46,9 @@ class VisionAlignment:
                 'lower2': [170, 100, 100],
                 'upper2': [180, 255, 255]
             },
-            'yellow': {
-                'lower': [20, 100, 100],
-                'upper': [40, 255, 255]
+            'green': {
+                'lower': [40, 100, 100],
+                'upper': [80, 255, 255]
             },
             'blue': {
                 'lower': [100, 100, 100],
@@ -75,7 +75,7 @@ class VisionAlignment:
         
         Args:
             frame: BGR image frame
-            color_name: Name of color to detect ('red', 'yellow', 'blue')
+            color_name: Name of color to detect ('red', 'green', 'blue')
             
         Returns:
             center_x, center_y, area, contour (None if not found)
@@ -309,7 +309,7 @@ class ObjectSeeker:
                 color_name, visualize=visualize)
             
             if center_x is not None:
-                print("*** OBJECT FOUND at robot position ({:.1f}, {:.1f}) ***".format(x, y))
+                print("Object detected at robot position ({:.1f}, {:.1f})".format(x, y))
                 print("Object center in image: ({}, {})".format(center_x, center_y))
                 print("Object area: {} px^2".format(area))
                 return True, x, y

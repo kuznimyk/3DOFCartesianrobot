@@ -6,9 +6,9 @@ from queue import Queue
 
 class CartesianServer:
     # Workspace limits (in cm)
-    X_MIN, X_MAX = 0, 7.5
-    Y_MIN, Y_MAX = 0,7
-    Z_MIN, Z_MAX = 0,5.5
+    X_MIN, X_MAX = -1, 6
+    Y_MIN, Y_MAX = -1,7
+    Z_MIN, Z_MAX = -3,5
     
     def __init__(self, host, port):
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -133,14 +133,14 @@ if __name__ == "__main__":
                 parts_cmd = cmd.split()
                 if len(parts_cmd) == 2:
                     color = parts_cmd[1].lower()
-                    if color in ['red', 'yellow', 'blue']:
+                    if color in ['red', 'green', 'blue']:
                         print(f"\nStarting vision search for {color} object...")
                         # Import here to avoid circular import
                         from test_vision_alignment import test_full_search_and_align
                         test_full_search_and_align(server, color)
                         print("\nSearch complete. Returning to interactive mode.")
                     else:
-                        print("Invalid color! Use: red, yellow, or blue")
+                        print("Invalid color! Use: red, green, or blue")
                 else:
                     print("Usage: search <color>  (e.g., 'search red')")
                 continue
@@ -150,7 +150,7 @@ if __name__ == "__main__":
                 parts_cmd = cmd.split()
                 if len(parts_cmd) == 2:
                     color = parts_cmd[1].lower()
-                    if color in ['red', 'yellow', 'blue']:
+                    if color in ['red', 'green', 'blue']:
                         print(f"\nStarting pick and place for {color} object...")
                         # Import here to avoid circular import
                         from pick_and_place import PickAndPlaceController
@@ -162,7 +162,7 @@ if __name__ == "__main__":
                         else:
                             print("\nPick and place failed.")
                     else:
-                        print("Invalid color! Use: red, yellow, or blue")
+                        print("Invalid color! Use: red, green, or blue")
                 else:
                     print("Usage: pickup <color>  (e.g., 'pickup blue')")
                 continue

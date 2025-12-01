@@ -24,9 +24,9 @@ def load_color_calibration():
             'lower2': [170, 100, 100],
             'upper2': [180, 255, 255]
         },
-        'yellow': {
-            'lower': [20, 100, 100],
-            'upper': [40, 255, 255]
+        'green': {
+            'lower': [40, 100, 100],
+            'upper': [80, 255, 255]
         },
         'blue': {
             'lower': [100, 100, 100],
@@ -129,21 +129,21 @@ def test_camera(camera_id=0):
     print("  'q' - Quit")
     print("  's' - Save current frame")
     print("  '1' - Toggle RED detection")
-    print("  '2' - Toggle YELLOW detection")
+    print("  '2' - Toggle GREEN detection")
     print("  '3' - Toggle BLUE detection")
     print("  '0' - Toggle all colors")
     
     # Color detection toggles
     show_colors = {
         'red': True,
-        'yellow': True,
+        'green': True,
         'blue': True
     }
     
     # Color for drawing (BGR format)
     draw_colors = {
         'red': (0, 0, 255),
-        'yellow': (0, 255, 255),
+        'green': (0, 255, 0),
         'blue': (255, 0, 0)
     }
     
@@ -170,7 +170,7 @@ def test_camera(camera_id=0):
             total_objects = 0
             y_offset = 30
             
-            for color_name in ['red', 'yellow', 'blue']:
+            for color_name in ['red', 'green', 'blue']:
                 if show_colors[color_name]:
                     mask, contours, count = detect_color(hsv, color_name, color_ranges)
                     total_objects += count
@@ -221,8 +221,8 @@ def test_camera(camera_id=0):
                 show_colors['red'] = not show_colors['red']
                 print("RED detection: {}".format("ON" if show_colors['red'] else "OFF"))
             elif key == ord('2'):
-                show_colors['yellow'] = not show_colors['yellow']
-                print("YELLOW detection: {}".format("ON" if show_colors['yellow'] else "OFF"))
+                show_colors['green'] = not show_colors['green']
+                print("GREEN detection: {}".format("ON" if show_colors['green'] else "OFF"))
             elif key == ord('3'):
                 show_colors['blue'] = not show_colors['blue']
                 print("BLUE detection: {}".format("ON" if show_colors['blue'] else "OFF"))

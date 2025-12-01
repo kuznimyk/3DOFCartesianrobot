@@ -32,7 +32,7 @@ class PickAndPlaceController:
         Search for object of given color, excluding drop zones
         
         Args:
-            color: Color to search for ('red', 'yellow', 'blue')
+            color: Color to search for ('red', 'green', 'blue')
             
         Returns:
             (found, x, y) - whether object found and its location
@@ -44,6 +44,17 @@ class PickAndPlaceController:
         y_min, y_max = 2.0, 5.0
         z_search = 0
         step_size = 1.5
+        
+        # Move to safe start position OUTSIDE drop zones before searching
+        safe_start_x = 3.0  # Center of search area
+        safe_start_y = 3.5  # Center of search area
+        print("Moving to safe start position ({}, {}, {}) before search...".format(
+            safe_start_x, safe_start_y, z_search))
+        self.server.sendMove(safe_start_x, safe_start_y, z_search, self.queue)
+        self.queue.get()
+        
+        import time
+        time.sleep(0.5)  # Allow movement to settle
         
         # Do search
         found, found_x, found_y = self.seeker.search_pattern(
@@ -85,7 +96,7 @@ class PickAndPlaceController:
         aligned, _, _ = self.seeker.align_with_object(
             color_name=color,
             max_iterations=15,
-            tolerance_x=50,
+            tolerance_x=30,
             tolerance_y=50,
             pixels_per_cm=50,
             visualize=True
@@ -98,6 +109,20 @@ class PickAndPlaceController:
         # Execute pick sequence
         print("\n*** Executing pick sequence ***")
         current_x, current_y, current_z = self.server.requestCoordinates()
+        print("Current position: X={:.2f}, Y={:.2f}, Z={:.2f}".format(current_x, current_y, current_z))
+        
+        # Apply camera offset correction
+        corrected_x = current_x - 0.3
+        print("Applying camera offset: X={:.2f} -> X={:.2f}".format(current_x, corrected_x))
+        
+        # Move to corrected position
+        print("Moving to corrected X position...")
+        self.server.sendMove(corrected_x, current_y, current_z, self.queue)
+        reply = self.queue.get()
+        print("Move result: {}".format(reply))
+        if reply == "ERROR":
+            print("ERROR: Failed to move to corrected position!")
+            return False
         
         # Open gripper once
         print("Opening gripper...")
@@ -105,9 +130,14 @@ class PickAndPlaceController:
         self.queue.get()
         
         # Descend to pick
-        print("Descending to pick height (Z=5.5)...")
-        self.server.sendMove(current_x, current_y, 5.5, self.queue)
-        self.queue.get()
+        print("Descending to pick height (Z=3.3)...")
+        print("Target position: X={:.2f}, Y={:.2f}, Z={:.2f}".format(corrected_x, current_y, 3.3))
+        self.server.sendMove(corrected_x, current_y, 3.3, self.queue)
+        reply = self.queue.get()
+        print("Descend result: {}".format(reply))
+        if reply == "ERROR":
+            print("ERROR: Failed to descend! Position might be out of bounds.")
+            return False
         
         # Close gripper
         print("Closing gripper...")
@@ -116,7 +146,7 @@ class PickAndPlaceController:
         
         # Lift object
         print("Lifting object to Z=0...")
-        self.server.sendMove(current_x, current_y, 0, self.queue)
+        self.server.sendMove(corrected_x, current_y, 0, self.queue)
         self.queue.get()
         
         print("*** Pick complete! ***")
@@ -151,18 +181,25 @@ class PickAndPlaceController:
         
         # Lower to drop height
         print("Lowering to drop height (Z=5.5)...")
-        self.server.sendMove(drop_x, drop_y, 5.5, self.queue)
+        self.server.sendMove(drop_x, drop_y, 2, self.queue)
         self.queue.get()
         
         # Open gripper to release
         print("Opening gripper to release object...")
         self.server.sendGripperOpen(self.queue)
         self.queue.get()
+       
         
         # Lift gripper
         print("Lifting gripper...")
         self.server.sendMove(drop_x, drop_y, 0, self.queue)
         self.queue.get()
+
+        print("Closing gripper after release...")
+        self.server.sendGripperClose(self.queue)
+        self.queue.get()
+
+
         
         print("*** Place complete! ***")
         return True

@@ -14,9 +14,9 @@ class DropZoneManager:
         # Drop zone locations in robot coordinates (X, Y, Z)
         # Each zone is (center_x, center_y, center_z, radius)
         self.drop_zones = {
-            'blue': {'x': 7.5, 'y': 0, 'z': 0, 'radius': 1.0},    # Blue drop zone
-            'green': {'x': 5.0, 'y': 0, 'z': 0, 'radius': 1.0},   # Green drop zone  
-            'red': {'x': 2.0, 'y': 0, 'z': 0, 'radius': 1.0}      # Red drop zone
+            'blue': {'x': 6, 'y': 0, 'z': 0, 'radius': 1.0},    # Blue drop zone
+            'green': {'x': 3.0, 'y': 0, 'z': 0, 'radius': 1.0},   # Green drop zone  
+            'red': {'x': 0, 'y': 0, 'z': 0, 'radius': 1.0}      # Red drop zone
         }
         
         print("Drop zones configured:")
@@ -51,7 +51,7 @@ class DropZoneManager:
         Get drop zone location for a color
         
         Args:
-            color: Color name ('red', 'yellow', 'blue')
+            color: Color name ('red', 'green', 'blue')
             
         Returns:
             (x, y, z) coordinates or None if color not found
