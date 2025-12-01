@@ -146,7 +146,7 @@ class VisionAlignment:
         target_x = self.width / 2
         
         # Target Y: 25% from top (object positioned in upper portion)
-        target_y = self.height * 0.85
+        target_y = self.height * 0.8
         
         # Calculate errors
         error_x = center_x - target_x
@@ -375,7 +375,7 @@ class ObjectSeeker:
                 center_x, center_y, pixels_per_cm)
             
             # Limit correction step size for gradual movement
-            MAX_STEP = 0.5  # Maximum 0.5cm per iteration
+            MAX_STEP = 1.0  # Maximum 1.0cm per iteration
             if abs(delta_x_cm) > MAX_STEP:
                 delta_x_cm = MAX_STEP if delta_x_cm > 0 else -MAX_STEP
             if abs(delta_y_cm) > MAX_STEP:
@@ -403,8 +403,8 @@ class ObjectSeeker:
             print("Before clamping: new_x={:.2f}, new_y={:.2f}, new_z={:.2f}".format(new_x, new_y, new_z))
             
             # Clamp to workspace limits - only reject if clamping changes the value significantly
-            X_MIN, X_MAX = 0, 6
-            Y_MIN, Y_MAX = 0, 6.5
+            X_MIN, X_MAX = 0, 8
+            Y_MIN, Y_MAX = 0, 7
             Z_MIN, Z_MAX = 0, 4.5
             
             clamped_x = max(X_MIN, min(X_MAX, new_x))

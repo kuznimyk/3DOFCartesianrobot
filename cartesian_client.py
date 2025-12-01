@@ -6,7 +6,7 @@ from ev3dev2.motor import MediumMotor, LargeMotor, OUTPUT_A, OUTPUT_B, OUTPUT_C,
 
 class CartesianClient:
     # Workspace limits (in cm)
-    X_MIN, X_MAX = -1, 6
+    X_MIN, X_MAX = -1, 8
     Y_MIN, Y_MAX = -1, 7
     Z_MIN, Z_MAX = -3, 5
     
@@ -126,14 +126,20 @@ class CartesianClient:
         """Open gripper (run 6 times for reliability)"""
         print("Opening gripper (6x)...")
         
-        self.gripper_motor.on_for_degrees(SpeedPercent(20), 150, brake=True, block=True)
+        self.gripper_motor.on_for_degrees(SpeedPercent(20), 140, brake=True, block=True)
         
     
     def closeGripper(self):
         """Close gripper (run 6 times for reliability)"""
         print("Closing gripper (6x)...")
         
-        self.gripper_motor.on_for_degrees(SpeedPercent(20), -150, brake=True, block=True)
+        self.gripper_motor.on_for_degrees(SpeedPercent(20), -140, brake=True, block=True)
+    
+    def resetGripper(self):
+        """Reset gripper motor position to 0 degrees"""
+        print("Resetting gripper to 0 degrees...")
+        self.gripper_motor.on_to_position(SpeedPercent(20), 0, brake=True, block=True)
+        print("Gripper reset complete")
         
     
     def setHome(self):
@@ -184,6 +190,15 @@ if __name__ == "__main__":
         if data == "CLOSE":
             try:
                 client.closeGripper()
+                client.sendDone()
+            except Exception as e:
+                print("Error: {}".format(e))
+                client.sendDone()
+            continue
+        
+        if data == "RESET":
+            try:
+                client.resetGripper()
                 client.sendDone()
             except Exception as e:
                 print("Error: {}".format(e))

@@ -40,14 +40,14 @@ class PickAndPlaceController:
         print("\n=== SEARCHING FOR {} OBJECT (excluding drop zones) ===".format(color.upper()))
         
         # Search parameters
-        x_min, x_max = 1.5, 4.5
-        y_min, y_max = 2.0, 5.0
+        x_min, x_max = 1.5, 6.5
+        y_min, y_max = 3, 6.0
         z_search = 0
         step_size = 1.5
         
         # Move to safe start position OUTSIDE drop zones before searching
-        safe_start_x = 3.0  # Center of search area
-        safe_start_y = 3.5  # Center of search area
+        safe_start_x = 4.0  # Center of search area
+        safe_start_y = 4.5  # Center of search area
         print("Moving to safe start position ({}, {}, {}) before search...".format(
             safe_start_x, safe_start_y, z_search))
         self.server.sendMove(safe_start_x, safe_start_y, z_search, self.queue)
@@ -95,9 +95,9 @@ class PickAndPlaceController:
         # Align with object
         aligned, _, _ = self.seeker.align_with_object(
             color_name=color,
-            max_iterations=15,
+            max_iterations=25,
             tolerance_x=30,
-            tolerance_y=50,
+            tolerance_y=60,
             pixels_per_cm=50,
             visualize=True
         )
@@ -106,13 +106,17 @@ class PickAndPlaceController:
             print("Alignment failed!")
             return False
         
+        # Close visualization window before pick sequence to prevent freezing
+        import cv2
+        cv2.destroyAllWindows()
+        
         # Execute pick sequence
         print("\n*** Executing pick sequence ***")
         current_x, current_y, current_z = self.server.requestCoordinates()
         print("Current position: X={:.2f}, Y={:.2f}, Z={:.2f}".format(current_x, current_y, current_z))
         
         # Apply camera offset correction
-        corrected_x = current_x - 0.3
+        corrected_x = current_x - 2  # Adjust based on calibration
         print("Applying camera offset: X={:.2f} -> X={:.2f}".format(current_x, corrected_x))
         
         # Move to corrected position
@@ -143,6 +147,8 @@ class PickAndPlaceController:
         print("Closing gripper...")
         self.server.sendGripperClose(self.queue)
         self.queue.get()
+
+        
         
         # Lift object
         print("Lifting object to Z=0...")
@@ -188,18 +194,26 @@ class PickAndPlaceController:
         print("Opening gripper to release object...")
         self.server.sendGripperOpen(self.queue)
         self.queue.get()
-       
+
         
         # Lift gripper
         print("Lifting gripper...")
         self.server.sendMove(drop_x, drop_y, 0, self.queue)
         self.queue.get()
+        
 
-        print("Closing gripper after release...")
+
+        print("Closing gripper to ensure object is released...")
         self.server.sendGripperClose(self.queue)
         self.queue.get()
+        
+        # Reset gripper motor to 0 degrees
+        print("Resetting gripper motor to 0 degrees...")
+        self.server.sendGripperReset(self.queue)
+        self.queue.get()
+        
 
-
+        
         
         print("*** Place complete! ***")
         return True

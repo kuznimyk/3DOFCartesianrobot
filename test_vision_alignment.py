@@ -58,8 +58,8 @@ def test_full_search_and_align(server, color='red'):
     try:
         # Define search area (adjust to your robot's limits)
         # Start from center to allow movement in all directions during alignment
-        x_min, x_max = 1.5, 4.5  # cm (centered in workspace)
-        y_min, y_max = 2.0, 5.0  # cm (centered, away from Y=0 boundary)
+        x_min, x_max = 1.5, 6.5  # cm (centered in workspace)
+        y_min, y_max = 3, 6.0  # cm (centered, away from Y=0 boundary)
         z_search = 0  # cm (at table level to see objects on the surface)
         step_size = 1.5  # cm
         
@@ -86,7 +86,7 @@ def test_full_search_and_align(server, color='red'):
         aligned, final_x, final_y = seeker.align_with_object(
             color_name=color,
             max_iterations=15,
-            tolerance_x=50,
+            tolerance_x=30,
             tolerance_y=50,
             pixels_per_cm=50,
             visualize=True

@@ -6,7 +6,7 @@ from queue import Queue
 
 class CartesianServer:
     # Workspace limits (in cm)
-    X_MIN, X_MAX = -1, 6
+    X_MIN, X_MAX = -1, 8
     Y_MIN, Y_MAX = -1,7
     Z_MIN, Z_MAX = -3,5
     
@@ -60,6 +60,14 @@ class CartesianServer:
         reply = self.cs.recv(128).decode("UTF-8")
         queue.put(reply)
         print(f"Reply: {reply}")
+    
+    def sendGripperReset(self, queue):
+        """Reset gripper motor to 0 degrees"""
+        print("Sending: RESET gripper")
+        self.cs.send("RESET".encode("UTF-8"))
+        reply = self.cs.recv(128).decode("UTF-8")
+        queue.put(reply)
+        print(f"Reply: {reply}")
 
     def sendSetHome(self, queue):
         """Set current position as home/starting point"""
@@ -101,6 +109,7 @@ if __name__ == "__main__":
     print("Commands: 'set' = set current position as home")
     print("Commands: 'search <color>' = search for colored object (e.g., 'search red')")
     print("Commands: 'pickup <color>' = complete pick and place cycle (e.g., 'pickup blue')")
+    print("Commands: 'autosort' = automatically sort all objects until none remain")
     print("Type 'exit' to return to home and quit\n")
     
     while True:
@@ -165,6 +174,14 @@ if __name__ == "__main__":
                         print("Invalid color! Use: red, green, or blue")
                 else:
                     print("Usage: pickup <color>  (e.g., 'pickup blue')")
+                continue
+            
+            if cmd.lower() == 'autosort':
+                print("\nStarting automatic sorting...")
+                print("Press Ctrl+C to stop\n")
+                from auto_sort import auto_sort_all_objects
+                total = auto_sort_all_objects(server, camera_id=2)
+                print(f"\nAutomatic sorting finished. Total objects sorted: {total}")
                 continue
             
             parts = cmd.split(',')
