@@ -14,7 +14,7 @@ class DropZoneManager:
         # Drop zone locations in robot coordinates (X, Y, Z)
         # Each zone is (center_x, center_y, center_z, radius)
         self.drop_zones = {
-            'blue': {'x': 6, 'y': 0, 'z': 0, 'radius': 1.0},    # Blue drop zone
+            'blue': {'x': 6.5, 'y': 0, 'z': 0, 'radius': 1.0},    # Blue drop zone
             'green': {'x': 4.0, 'y': 0, 'z': 0, 'radius': 1.0},   # Green drop zone  
             'red': {'x': 0.5, 'y': 0, 'z': 0, 'radius': 1.0}      # Red drop zone
         }
