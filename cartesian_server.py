@@ -24,7 +24,7 @@ class CartesianServer:
     
     def sendGripperOpen(self, queue):
         """Open gripper - send multiple times for reliability"""
-        for i in range(1):
+        for i in range(2):
             self.cs.send("OPEN".encode("UTF-8"))
             reply = self.cs.recv(128).decode("UTF-8")
             print(f"  Attempt {i+1}: {reply}")
