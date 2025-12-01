@@ -146,7 +146,7 @@ class VisionAlignment:
         target_x = self.width / 2
         
         # Target Y: 20% from bottom (object positioned in upper portion)
-        target_y = self.height * 0.8
+        target_y = self.height * 0.85
         
         # Calculate errors
         error_x = center_x - target_x
