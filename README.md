@@ -2,10 +2,12 @@
 
 A vision-guided pick-and-place robot built with LEGO EV3 and Python. The robot uses a PC-mounted camera to detect colored objects (red, green, blue), aligns with them using visual servoing, picks them up, and sorts them into designated drop zones.
 
-#Design
 
-Software: https://moc.bricklink.com/v2/build/studio.page
-cmput312.io
+## Robot Design File
+
+The full 3-DOF Cartesian robot was first designed in BrickLink Studio.
+
+👉 [Download the Robot Design (cmput312.io)](./cmput312.io)
 
 ## 🎯 Features
 
